@@ -2,6 +2,12 @@
 #include <string>
 #include <utility>
 #include <fstream>
+#include <iomanip>
+
+#include <glog/logging.h>
+
+#include "boost/algorithm/string.hpp"
+
 #include "CalculateDistance.hpp"
 #include "ExtractDataFromDB.hpp"
 
@@ -39,7 +45,7 @@ void getSimilaritiesSquence(const string &features_db, const string &db_type, in
         for(int i = 0; i < nums; ++i)
             featureVectors[index][i] = features[index].float_data(i);
         
-        shared_ptr<CalculateDistance<float>> calculator = CreateCalculatorFloat().create(type);
+        shared_ptr<CalculateDistance<float>> calculator = CreateCalculator<float>().create(type);
 
         //获得下一个采样帧
         int step = 0;
@@ -82,4 +88,52 @@ void getSimilaritiesSquence(const string &features_db, const string &db_type, in
         
 
     }
+}
+
+int main(int argc, char **argv)
+{
+    ::google::InitGoogleLogging(argv[0]);
+    const int num_required_args = 5;
+    if(argc < num_required_args)
+    {
+        LOG(ERROR) << 
+        "This program is used to calculate  frame distances\n"
+        "Usage:FeaturesAndDistance features_db db_type sampleRates type\n"
+        "features_db:包含单个视频中所有帧图像的特征的db文件\n"
+        "db_type: db文件的类型 leveldb, lmdb\n"
+        "sampleRate: 采样率,用逗号隔开的采样率序列\n"
+        "type: 距离度量的类型，目前有Cosine\n";
+        return 1;
+    }
+    int arg_pos = 0;
+    string features_db(argv[++arg_pos]);
+    string db_type(argv[++arg_pos]);
+    string sampleRateString(argv[++arg_pos]);
+    vector<string> temp;
+    boost::split(temp,sampleRateString,boost::is_any_of(","));
+    vector<int> sampleRates;
+    for(size_t i = 0; i < temp.size();++i)
+        sampleRates.push_back(std::stoi(temp[i]));
+    string distance_type(argv[++arg_pos]);
+    vector<vector<pair<int,float>>> all_distances(sampleRates.size());
+
+    for(size_t i = 0; i < sampleRates.size();++i)
+    {
+        getSimilaritiesSquence(features_db,db_type,sampleRates[i],distance_type,all_distances[i]);
+        string output_file("distance");
+        output_file = output_file + std::to_string(i);
+        std::ofstream out(output_file);
+        if(!out.is_open())
+        {
+            LOG(ERROR) << "cannot create the file " << output_file;
+            return 1;
+        }
+        for(size_t j = 0; j < all_distances[i].size();++j)
+        {
+            out << std::setw(10) << std::setfill('0') << all_distances[i][j].first << " " << all_distances[i][j].second
+                << std::endl;
+        }
+        out.close();
+    }
+    return 0;
 }

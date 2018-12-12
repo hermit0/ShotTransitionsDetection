@@ -104,6 +104,7 @@ int extractFeaturesForVideo(const string &video_file, const string &pretrained_b
         file_name.push_back('_');
         file_name.append(blob_names[i]);
         file_names.append(file_name);
+        file_names.append(db_backend);
     }
     
     cv::VideoCapture cap;
