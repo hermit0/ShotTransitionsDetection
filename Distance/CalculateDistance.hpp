@@ -48,7 +48,7 @@ template <typename T>
 T CosineDistance<T>::calculate(const T *a, const T *b, int n)
 {
     T dot_product = caffe::caffe_cpu_dot(n,a,b);
-    return dot_product / 
+    return 1 - dot_product / 
             (std::sqrt(caffe::caffe_cpu_dot(n,a,a)) *
             std::sqrt(caffe::caffe_cpu_dot(n,b,b)));
 }
