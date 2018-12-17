@@ -199,8 +199,8 @@ int extractFeaturesForVideo(const string &video_file, const string &pretrained_b
     }
 
     //提取该视频的特征,存放到db文件中
-    // feature_extract_to_db<float>(pretrained_binary_proto, feature_extraction_proto, extract_feature_blob_names,file_names,num_mini_batches,
-    //     db_backend,mode,device_id);
+    feature_extract_to_db<float>(pretrained_binary_proto, feature_extraction_proto, extract_feature_blob_names,file_names,num_mini_batches,num_of_frames,
+        db_backend,mode,device_id);
 
     //删除视频帧的db文件
     path file_path = db_name;

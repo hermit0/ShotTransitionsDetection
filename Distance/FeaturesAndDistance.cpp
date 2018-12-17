@@ -152,6 +152,60 @@ vector<int> filtering(vector<pair<int,float>> &distances, float sigma, int windo
     
 }
 
+//candidate seletction
+//算法2
+//T = static + sigma * local_mean
+//当d(i) > T认为该帧是candidate
+vector<int> filtering2(vector<pair<int,float>> &distances, float sigma, float static_th,int window_size)
+{
+    float window_sum = 0.0;
+    //int start_frame = window_size - 1;
+    size_t window_start = 0;
+    size_t window_end = 2 * window_size - 2;
+    
+    vector<int> candidates;
+    if(distances.empty())
+        return candidates;
+
+    //计算全局平均值
+    float global_mean = 0.0;
+    float sum = 0.0;
+    for(size_t i = 0; i < distances.size();++i)
+        sum += distances[i].second;
+    global_mean = sum / distances.size();
+    
+    int frame_no = window_start + window_size - 1;
+    for(size_t i = window_start; i <= window_end;++i)
+        window_sum += distances[i].second;
+    while(window_end < distances.size())
+    {
+        //计算local mean ,local standard deviation
+        float local_mean = window_sum / (2 * window_size -1); 
+        // float local_d = 0.0;
+        // for(size_t i = window_start; i < window_end;++i)
+        // {
+        //     local_d = (distances[i].second - local_mean) * (distances[i].second - local_mean);
+
+        // }
+        // local_d = std::sqrt(local_d / (2 * window_size - 2));
+        //计算threshold
+        
+        float threshold = static_th + sigma * local_mean;
+        if(distances[frame_no] .second > threshold)
+            candidates.push_back(distances[frame_no].first);
+        
+        //滑动窗口
+        ++frame_no;
+        window_sum -= distances[window_start].second;
+        ++window_end;
+        if(window_end < distances.size())
+            window_sum += distances[window_end].second;
+
+    }
+    return candidates;
+    
+}
+
 int main(int argc, char **argv)
 {
     ::google::InitGoogleLogging(argv[0]);
@@ -199,22 +253,23 @@ int main(int argc, char **argv)
     }
     vector<vector<int>> initial_candidates;
     //float t = 0.5;
-    float sigma = 0.05;
+    float sigma = 0.5;
+    float static_th = 0.05;
     int window_size = 16;
     //进行初步的筛选
     for(size_t i = 0; i < sampleRates.size();++i)
     {
         vector<int> temp = filtering(all_distances[i], sigma, window_size);
         //打印以供调试
-        // string candidate_file_name("candidates_at_sample_");
-        // candidate_file_name.append(std::to_string(sampleRates[i]));
-        // std::ofstream candidate_file(candidate_file_name);
-        // if(candidate_file.is_open())
-        // {
-        //     for(auto frame_no : temp)
-        //         candidate_file << frame_no << std::endl;
-        //     candidate_file.close();
-        // }
+        string candidate_file_name("candidates_at_sample_");
+        candidate_file_name.append(std::to_string(sampleRates[i]));
+        std::ofstream candidate_file(candidate_file_name);
+        if(candidate_file.is_open())
+        {
+            for(auto frame_no : temp)
+                candidate_file << frame_no << std::endl;
+            candidate_file.close();
+        }
         initial_candidates.push_back(temp);
 
     }

@@ -46,14 +46,14 @@ int feature_extract_to_db(int argc, char** argv);
 
 template<typename Dtype>
 int feature_extract_to_db(const string &pretrained_net_param, const string &feature_extraction_proto_file, const string &extract_feature_blob_names,
-    const string &save_feature_file_names, const int num_mini_batches, const string &db_backend, const string mode = "CPU", const int device_id = 0);
+    const string &save_feature_file_names, const int num_mini_batches, const int num_of_frames,const string &db_backend, const string mode = "CPU", const int device_id = 0);
 
 // int feature_extract_to_db_float(const string &pretrained_net_param, const string &feature_extraction_proto_file, const string &extract_feature_blob_names,
-//      const string &save_feature_file_names, const int num_mini_batches, const string &db_backend, const string mode = "CPU", const int device_id = 0);
+//      const string &save_feature_file_names, const int num_mini_batches,const int num_of_frames, const string &db_backend, const string mode = "CPU", const int device_id = 0);
 
 template<typename Dtype>
 int feature_extract_to_db(const string &pretrained_net_param, const string &feature_extraction_proto_file, const string &extract_feature_blob_names,
-    const string &save_feature_file_names, const int num_mini_batches, const string &db_backend, const string mode, const int device_id)
+    const string &save_feature_file_names, const int num_mini_batches, const int num_of_frames,const string &db_backend, const string mode, const int device_id)
 {
     if(mode == "GPU")
     {
@@ -119,18 +119,23 @@ int feature_extract_to_db(const string &pretrained_net_param, const string &feat
                 for (int d = 0; d < dim_features; ++d) {
                     datum.add_float_data(feature_blob_data[d]);
                 }
-                string key_str = caffe::format_int(image_indices[i], 10);
+                if(image_indices[i] < num_of_frames)
+                {
+                    //是视频中的帧图像的特征
+                    string key_str = caffe::format_int(image_indices[i], 10);
 
-                string out;
-                CHECK(datum.SerializeToString(&out));
-                txns.at(i)->Put(key_str, out);
-                ++image_indices[i];
-                if (image_indices[i] % 1000 == 0) {
-                    txns.at(i)->Commit();
-                    txns.at(i).reset(feature_dbs.at(i)->NewTransaction());
-                    LOG(ERROR)<< "Extracted features of " << image_indices[i] <<
-                    " query images for feature blob " << blob_names[i];
+                    string out;
+                    CHECK(datum.SerializeToString(&out));
+                    txns.at(i)->Put(key_str, out);
+                    ++image_indices[i];
+                    if (image_indices[i] % 1000 == 0) {
+                        txns.at(i)->Commit();
+                        txns.at(i).reset(feature_dbs.at(i)->NewTransaction());
+                        LOG(ERROR)<< "Extracted features of " << image_indices[i] <<
+                        " query images for feature blob " << blob_names[i];
+                    }
                 }
+                
             }  // for (int n = 0; n < batch_size; ++n)
         }
     }

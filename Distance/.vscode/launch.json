@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/a.out",
-            "args": ["/home/hermit/sda3/test/soccer_0019_EuroCup.mp4_pool10",
+            "args": ["/home/hermit/sda3/test/soccer_0019_EuroCup.mp4_pool10leveldb",
                 "leveldb",
                 "1,2,4,8,16,32",
                 "Cosine"],
