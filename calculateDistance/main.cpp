@@ -10,6 +10,7 @@
 #include <opencv2/highgui/highgui.hpp>
 #include <opencv2/videoio.hpp>
 #include "boost/algorithm/string.hpp"
+#include "boost/filesystem.hpp"
 
 #include "caffe/proto/caffe.pb.h"
 #include "caffe/blob.hpp"
@@ -23,18 +24,21 @@ using std::pair;
 using caffe::Caffe;
 using caffe::InputParameter;
 using caffe::Net;
+using boost::filesystem::path;
 
+vector<int> filtering(const vector<std::pair<int,float>> &distances, float a, int window_size);
+vector<int> merge_candidates(vector<vector<int>> &candidates_at_all_sampleRates);
 int processVideo(const string &video_file, const string &pretrained_binary_proto, const string &feature_extraction_proto,
-    const string &extract_feature_blob_names, const string &distance_type,int new_height, int new_width, const vector<int> &all_rates, const string &mode,int device_id);
+    const string &extract_feature_blob_names, const string &distance_type,int new_height, int new_width, const vector<int> &all_rates, const string &mode,int device_id,const string &output_dir);
 //启动的主函数
 int main(int argc, char **argv)
 {
     ::google::InitGoogleLogging(argv[0]);
-    const int num_required_args = 9;
+    const int num_required_args = 10;
     if(argc < num_required_args){
         LOG(ERROR) <<
-        "This program is used to extract features for a list of videos\n"
-        "用法：featureProcess pretained_net_param net_protofile blob_names video_file_list new_height new_width distance_type sampleRates [CPU/GPU] [device_id]"
+        "This program is used to select candidate transiton center for a list of videos\n"
+        "用法：calculateDistance pretained_net_param net_protofile blob_names video_file_list new_height new_width distance_type sampleRates output_dir [CPU/GPU] [device_id]"
         "pretrained_net_param:训练好的网络模型的参数\n"
         "net_protofile:网络的proto txt文件\n"
         "blob_names :要提取的特征对应的blob的名字,用逗号隔开\n"
@@ -43,6 +47,7 @@ int main(int argc, char **argv)
         "new_width:缩放后的图像宽度\n"
         "distance_type: 距离度量的类型，目前有Cosine\n"
         "sampleRates:采样率序列，用逗号隔开\n"
+        "output_dir:输出目录\n"
         "可选的[CPU/GPU] [device_id]";
 
         return 1;
@@ -80,6 +85,7 @@ int main(int argc, char **argv)
     }
     std::sort(all_rates.begin(),all_rates.end());   //确保采样率是递增的
 
+    string output_dir(argv[++arg_pos]);
     //读取视频文件并依次处理单个视频
     std::ifstream videos_stream(contain_videos_file);
     if(videos_stream.is_open())
@@ -89,7 +95,7 @@ int main(int argc, char **argv)
         {
             LOG(ERROR) << "start  processing " << video_name;
             if(processVideo(video_name,pretrained_binary_proto, feature_extraction_proto,extract_feature_blob_names,distance_type,new_height,
-                new_width, all_rates, mode, device_id))
+                new_width, all_rates, mode, device_id,output_dir))
                 LOG(ERROR) << "cannot calculate distances sequence for video " << video_name;
 
 
@@ -113,7 +119,7 @@ int main(int argc, char **argv)
 // device_id: GPU的设备id
 // 输出：包含距离序列的一系列文件，文件命令方式：视频名_特征名_采样率
 int processVideo(const string &video_file, const string &pretrained_binary_proto, const string &feature_extraction_proto,
-    const string &extract_feature_blob_names, const string &distance_type,int new_height, int new_width, const vector<int> &all_rates, const string &mode,int device_id)
+    const string &extract_feature_blob_names, const string &distance_type,int new_height, int new_width, const vector<int> &all_rates, const string &mode,int device_id,const string &output_dir)
 {
     
     cv::VideoCapture cap;
@@ -272,27 +278,182 @@ int processVideo(const string &video_file, const string &pretrained_binary_proto
         window_begin = window_end;
         window_end = window_begin;
     }
-    //打印distance以调试
-    for(size_t feature_index = 0; feature_index < num_features; ++feature_index)
+    auto pos = video_file.rfind('/');
+    string video_name;
+    if(pos == string::npos)
+        video_name = video_file;
+    else
+        video_name = video_file.substr(pos+1);
+    // //打印distance以调试
+    // for(size_t feature_index = 0; feature_index < num_features; ++feature_index)
+    // {
+    //     auto pos = video_file.rfind('/');
+    //     string video_name;
+    //     if(pos == string::npos)
+    //         video_name = video_file;
+    //     else
+    //         video_name = video_file.substr(pos+1);
+    //     string prefix(output_dir);
+    //     if(output_dir.back() != '/')
+    //         prefix.push_back('/');
+
+    //     prefix = prefix + video_name + "_"+blob_names[feature_index] + "_";
+    //     for(size_t rate_index = 0; rate_index < all_rates.size();++rate_index)
+    //     {
+    //         string file_name(prefix + std::to_string(all_rates[rate_index]));
+    //         std::ofstream of(file_name);
+    //         if(!of.is_open())
+    //         {
+    //             LOG(ERROR) << "cannot create the file " << file_name;
+    //             return 1;
+    //         }
+    //         for(size_t j = 0; j < all_distances[feature_index][rate_index].size();++j)
+    //         {
+    //             of << std::setw(10) << std::setfill('0') << all_distances[feature_index][rate_index][j].first << " " 
+    //                 << all_distances[feature_index][rate_index][j].second << std::endl;
+    //         }
+    //         of.close();
+    //     }
+    // }
+    for(size_t feature_index = 0; feature_index < num_features;++feature_index)
     {
-        string prefix(video_file + "_distance");
-        prefix = prefix + blob_names[feature_index] + "_";
+        vector<vector<int>> initial_candidates;
+        float a = 0.7;
+        int window_size = 16;
         for(size_t rate_index = 0; rate_index < all_rates.size();++rate_index)
         {
-            string file_name(prefix + std::to_string(all_rates[rate_index]));
-            std::ofstream of(file_name);
-            if(!of.is_open())
+            vector<int> temp = filtering(all_distances[feature_index][rate_index],a,window_size);
+            initial_candidates.push_back(temp);
+        }
+        vector<int> all = merge_candidates(initial_candidates);
+        //输出结果文件
+        string output_file(output_dir);
+        if(output_dir.back() != '/')
+            output_file.push_back('/');
+        output_file += blob_names[feature_index] + "/";
+        path dir_name(output_file);
+        if(!exists(dir_name))
+            if(!create_directory(dir_name))
             {
-                LOG(ERROR) << "cannot create the file " << file_name;
+                LOG(ERROR) << "cannot create the directory " << dir_name;
                 return 1;
             }
-            for(size_t j = 0; j < all_distances[feature_index][rate_index].size();++j)
-            {
-                of << std::setw(10) << std::setfill('0') << all_distances[feature_index][rate_index][j].first << " " 
-                    << all_distances[feature_index][rate_index][j].second << std::endl;
-            }
-            of.close();
+        output_file += video_name +"_candidates";
+        std::ofstream output(output_file);
+        if(!output.is_open())
+        {
+            LOG(ERROR) << "cannot create the file " << output_file;
+            return 1;
         }
+        for(auto item:all)
+            output << item << std::endl;
+            
     }
     return 0;
+}
+
+//candidate seletction
+//算法1
+//T = local_mean + a * local_sigma * (1 + ln(global_mean / local_mean))
+//当d(i) > T 或者 d(i)比其相邻的大很多时，认为该帧是candidate
+vector<int> filtering(const vector<std::pair<int,float>> &distances, float a, int window_size)
+{
+    float window_sum = 0.0;
+    float window_square_sum = 0.0;
+    size_t window_start = 0;
+    size_t window_end = 2 * window_size - 2;
+    
+    vector<int> candidates;
+    if(distances.empty())
+        return candidates;
+
+    //计算全局平均值
+    float global_mean = 0.0;
+    float sum = 0.0;
+    for(size_t i = 0; i < distances.size();++i)
+        sum += distances[i].second;
+    global_mean = sum / distances.size();
+    
+    int frame_no = window_start + window_size - 1;
+    for(size_t i = window_start; i <= window_end;++i)
+    {
+        window_sum += distances[i].second;
+        window_square_sum += distances[i].second * distances[i].second;
+    }
+        
+    while(window_end < distances.size())
+    {
+        //计算local mean ,local standard deviation
+        float local_mean = window_sum / (2 * window_size -1); 
+        float local_d = window_square_sum - 2* local_mean * window_sum + (2 * window_size -1) * local_mean *local_mean;
+        
+        local_d = std::sqrt(local_d / (2 * window_size - 2));
+        //计算threshold
+        float threshold = local_mean + a * local_d * (1 + std::log(global_mean / local_mean));
+        if(distances[frame_no] .second > threshold)
+            candidates.push_back(distances[frame_no].first);
+        else{
+            if((distances[frame_no].second > 3 * distances[frame_no - 1].second 
+                || distances[frame_no].second > 3 * distances[frame_no + 1].second)
+                && distances[frame_no].second > 0.8 * global_mean)
+                candidates.push_back(distances[frame_no].first);
+        }
+        //滑动窗口
+        ++frame_no;
+        window_sum -= distances[window_start].second;
+        window_square_sum -= distances[window_start].second * distances[window_start].second;
+        ++window_end;
+        ++window_start;
+        if(window_end < distances.size())
+        {
+            window_sum += distances[window_end].second;
+            window_square_sum += distances[window_end].second * distances[window_end].second;
+        }
+            
+    }
+    return candidates;
+    
+}
+//合并不同采样率得到的candidate
+vector<int> merge_candidates(vector<vector<int>> &candidates_at_all_sampleRates)
+{
+    
+    vector<int> result;
+    if(candidates_at_all_sampleRates.empty())
+        return result;
+    std::list<int> temp(candidates_at_all_sampleRates[0].begin(),candidates_at_all_sampleRates[0].end());
+    const int min_space = 5;    //不同采样率之间的候选帧之间的最小间隔
+    for(size_t i = 1; i < candidates_at_all_sampleRates.size();++i)
+    {
+        auto it = temp.begin();
+        auto prev_it = temp.end();
+        for(size_t j = 0; j < candidates_at_all_sampleRates[i].size();++j)
+        {
+            while(it != temp.end() && *it < candidates_at_all_sampleRates[i][j])
+            {
+                prev_it = it;
+                ++it;
+            }
+           
+            //如果不同采样率的candidates相隔太近，则只保留低采样率的candidates
+            if(it == temp.begin())
+            {
+                if(*it >= candidates_at_all_sampleRates[i][j] + min_space)
+                    temp.insert(it, candidates_at_all_sampleRates[i][j]);
+            }else if(it == temp.end())
+            {
+                if(candidates_at_all_sampleRates[i][j] >= *prev_it + min_space)
+                    temp.insert(it, candidates_at_all_sampleRates[i][j]);
+            }else
+            {
+                if(*it >= candidates_at_all_sampleRates[i][j] + min_space 
+                    && candidates_at_all_sampleRates[i][j] >= *prev_it + min_space)
+                    temp.insert(it, candidates_at_all_sampleRates[i][j]);
+            }
+            
+        }
+    }
+    result.resize(temp.size());
+    std::copy(temp.begin(),temp.end(),result.begin());
+    return result;
 }

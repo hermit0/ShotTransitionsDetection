@@ -1,4 +1,4 @@
-# Install script for directory: /home/hermit/CLionProjects/calculateDistance
+# Install script for directory: /home/hermit/ShotTransitionsDetection/calculateDistance
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -45,5 +45,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/home/hermit/CLionProjects/calculateDistance/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/home/hermit/ShotTransitionsDetection/calculateDistance/cmake-build-debug/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

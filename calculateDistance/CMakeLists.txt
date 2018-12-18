@@ -11,4 +11,5 @@ target_link_libraries(calculateDistance glog
         /usr/local/lib/libopencv_imgproc.so
         /usr/lib/x86_64-linux-gnu/libprotobuf.so
         /home/hermit/C3D-v1.1-openblas/build/lib/libcaffe.so
-        /usr/lib/x86_64-linux-gnu/libboost_system.so)
+        /usr/lib/x86_64-linux-gnu/libboost_system.so
+        /usr/lib/x86_64-linux-gnu/libboost_filesystem.so)

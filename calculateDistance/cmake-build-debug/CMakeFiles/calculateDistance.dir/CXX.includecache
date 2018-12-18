@@ -202,7 +202,7 @@ cblas.h
 math.h
 -
 
-/home/hermit/CLionProjects/calculateDistance/CalculateDistance.hpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/CalculateDistance.hpp
 string
 -
 memory
@@ -210,9 +210,9 @@ memory
 cmath
 -
 caffe/util/math_functions.hpp
-/home/hermit/CLionProjects/calculateDistance/caffe/util/math_functions.hpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/caffe/util/math_functions.hpp
 
-/home/hermit/CLionProjects/calculateDistance/main.cpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/main.cpp
 string
 -
 cstring
@@ -234,15 +234,17 @@ opencv2/highgui/highgui.hpp
 opencv2/videoio.hpp
 -
 boost/algorithm/string.hpp
-/home/hermit/CLionProjects/calculateDistance/boost/algorithm/string.hpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/boost/algorithm/string.hpp
+boost/filesystem.hpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/boost/filesystem.hpp
 caffe/proto/caffe.pb.h
-/home/hermit/CLionProjects/calculateDistance/caffe/proto/caffe.pb.h
+/home/hermit/ShotTransitionsDetection/calculateDistance/caffe/proto/caffe.pb.h
 caffe/blob.hpp
-/home/hermit/CLionProjects/calculateDistance/caffe/blob.hpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/caffe/blob.hpp
 caffe/net.hpp
-/home/hermit/CLionProjects/calculateDistance/caffe/net.hpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/caffe/net.hpp
 CalculateDistance.hpp
-/home/hermit/CLionProjects/calculateDistance/CalculateDistance.hpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/CalculateDistance.hpp
 caffe/util/io.hpp
-/home/hermit/CLionProjects/calculateDistance/caffe/util/io.hpp
+/home/hermit/ShotTransitionsDetection/calculateDistance/caffe/util/io.hpp
 
